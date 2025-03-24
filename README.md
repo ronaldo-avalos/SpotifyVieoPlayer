@@ -1,7 +1,7 @@
 
 <div align="center">
   <img height="600" src="assests/Screen-Recording.gif" alt="ss">
-  <h1><b>SpotifyViewoPlayer</b></h1>
+  <h1><b>SpotifyVideoPlayer</b></h1>
   <p>SpotifyVideoPlayer is a SwiftUI-based music player that replicates the Spotify video playback experience, featuring smooth transitions, interactive controls, and a visually engaging UI. The app integrates a background video player, song lyrics display, artist details, and a merchandise section, providing a rich and immersive music streaming experience.<br>
 </div>
 

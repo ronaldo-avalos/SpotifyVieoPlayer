@@ -11,29 +11,52 @@ import AVKit
 
 struct VideoPlayerView: View {
     @State var player = AVPlayer()
-    var video: String
+    @Binding var currentlyShowingVideo: Video
+    let video: Video
     var size: CGSize
 
     var body: some View {
         VideoPlayerUIView(player: player,size: size )
             .onAppear {
                 loadVideoFile()
-                addLooping()
-                player.play()
+                
+                if currentlyShowingVideo == video {
+                    DispatchQueue.main.async {
+                        loadVideoFile()
+                        addLooping()
+                        player.play()
+                        player.isMuted = true
+
+                    }
+                }
+            }
+            .onChange(of: currentlyShowingVideo) {
+                if currentlyShowingVideo == video {
+                    DispatchQueue.main.async {
+                        player.play()
+                        player.isMuted = true
+
+                    }
+                } else {
+                    player.pause()
+                }
             }
             .ignoresSafeArea()
     }
     
     func loadVideoFile() {
-        guard let bundleID = Bundle.main.path(forResource: video, ofType: "mov") else { return }
+        guard let bundleID = Bundle.main.path(forResource: video.videoID, ofType: "mov") else { return }
         let videoURL = URL(filePath: bundleID)
         let playerItem = AVPlayerItem(url: videoURL)
         player.replaceCurrentItem(with: playerItem)
+        player.isMuted = true
+
     }
     
     func addLooping() {
         NotificationCenter.default.addObserver(forName: .AVPlayerItemDidPlayToEndTime, object: player.currentItem, queue: .main) { _ in
             player.seek(to: .zero)
+            player.isMuted = true
             player.play()
         }
     }

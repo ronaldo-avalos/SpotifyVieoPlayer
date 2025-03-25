@@ -11,45 +11,50 @@ struct PlayerView: View {
     
     var safeArea: EdgeInsets
     var size: CGSize
+    let videos: [Video] = [
+        .init(videoID: "video 1"),
+        .init(videoID: "video 2"),
+        .init(videoID: "video 3"),
+    ]
+   
     
     @State var value : Double = 0.0
     @State var tatalDuration: Double = 251.0
     @State var isPlaying: Bool = true
     @State var timer: Timer?
-    @State private var songName = "Die With A Smile"
-    @State private var artists : [String] = ["Lady Gaga", "Bruno Mars"]
-    @State private var listenersMonthly = "120.2M monthly listeners"
-    
-    
+    @State var currentlyShownVideo: Video = .init(videoID: "video 1")
+    @State var currentSong: Song = Song.songs.first!
+    @State private var currentIndex: Int = 0
+
     var body: some View {
         VStack {
             ZStack {
                 ScrollView {
                     VStack {
                         BackgroundVideoView()
-                            .overlay {
-                                Color.black.opacity(0.4)
-                                LinearGradient(colors: [
-                                    .clear,
-                                    .clear.opacity(0.4),
-                                    .black.opacity(0.4),
-                                    .black.opacity(0.5),
-                                    .black.opacity(0.8),
-                                    .black
-                                ], startPoint: .top, endPoint: .bottom)
+                            .overlay(alignment:.bottom) {
                                 VStack {
-                                    Spacer()
-                                    
                                     NameSongView()
                                     SpotifySlider()
                                     ControlsPlayers()
-                                }.padding(24)
+                                }.frame(height: 300)
+                                .padding(24)
+                                .background {
+                                        LinearGradient(colors: [
+                                            .clear,
+                                            .clear.opacity(0.5),
+                                            .black.opacity(0.6),
+                                            .black.opacity(0.8),
+                                            .black.opacity(0.9),
+                                            .black
+                                        ], startPoint: .top, endPoint: .bottom)
+                                    }
                             }
                         VStack(spacing:24) {
                             LyricsView()
                             AboutArtistView()
                             MerchView()
-                        }.padding(24)
+                        }.padding(12)
                     }
                     .overlay {
                         HeaderView()
@@ -58,6 +63,7 @@ struct PlayerView: View {
                 .scrollIndicators(.hidden)
                 .coordinateSpace(name: "SCROLL")
                 .safeAreaPadding(EdgeInsets(top: 0, leading: 0, bottom: safeArea.bottom + 100, trailing: 0))
+                
             }
             .ignoresSafeArea()
         }
@@ -70,6 +76,13 @@ struct PlayerView: View {
         .onChange(of: isPlaying) { _, playing in
             playing ? startTimer() : stopTimer()
         }
+        .onChange(of: currentlyShownVideo) { oldValue, newValue in
+            if let song = Song.songs.first(where: { $0.video.videoID == newValue.videoID }) {
+                currentSong = song
+                value = 0.0
+            }
+        }
+
     }
     
     @ViewBuilder
@@ -77,7 +90,7 @@ struct PlayerView: View {
         let height = size.height * 0.25
         GeometryReader { proxy in
             let minY = proxy.frame(in: .named("SCROLL")).minY
-            let progress = (minY / (height * 3.5) * -1)
+            let progress = (minY / (height * 2.6) * -1)
             
             ZStack {
                 VStack(alignment: .leading, spacing: 8) {
@@ -85,11 +98,11 @@ struct PlayerView: View {
                     HStack {
                         ScrollView(.horizontal) {
                             HStack {
-                                Text(songName + " •")
+                                Text(currentSong.name + " •")
                                     .font(.title3.bold())
                                 HStack {
-                                    ForEach(artists, id:\.self) { artis in
-                                        Text(artis != artists.last ? "\(artis),":artis)
+                                    ForEach(currentSong.artist, id:\.self) { artis in
+                                        Text(artis != currentSong.artist.last ? "\(artis),":artis)
                                             .font(.subheadline.bold())
                                             .foregroundStyle(.gray)
                                     }
@@ -138,7 +151,18 @@ struct PlayerView: View {
         let height = size.height
         GeometryReader { g in
             let size = g.size
-            VideoPlayerView(video: "video",size: size)
+            TabView(selection: $currentlyShownVideo) {
+                ForEach(videos, id: \.self) { video in
+                    VideoPlayerView(
+                        currentlyShowingVideo: $currentlyShownVideo,
+                        video: video,
+                        size: size)
+                    .tag(video)
+                    
+                }
+                
+            }
+            .tabViewStyle(PageTabViewStyle(indexDisplayMode: .never))
             
         }.frame(height: height + safeArea.top)
     }
@@ -150,21 +174,21 @@ struct PlayerView: View {
                 .font(.caption.bold())
                 .foregroundStyle(.white)
                 .padding(10)
-                .background(.black.opacity(0.4))
+                .background(.black.opacity(0.6))
                 .cornerRadius(18)
             
             HStack {
-                Image(.albumImg)
+                Image(currentSong.albumImage)
                     .resizable()
                     .cornerRadius(10)
                     .frame(width: 50,height: 50)
                 VStack(alignment:.leading) {
-                    Text(songName)
+                    Text(currentSong.name)
                         .font(.title.bold())
-                    HStack {
-                        ForEach(artists, id:\.self) { artis in
-                            Text(artis != artists.last ? "\(artis),":artis)
-                                .font(.system(size: 16))
+                    HStack(spacing: 2) {
+                        ForEach(currentSong.artist, id:\.self) { artis in
+                            Text(artis != currentSong.artist.last ? "\(artis),":artis)
+                                .font(.system(size: 16, weight: .semibold))
                                 .foregroundStyle(.gray)
                         }
                     }
@@ -198,7 +222,11 @@ struct PlayerView: View {
             HStack(spacing:54) {
                 Image(.shuffle)
                 HStack(spacing:24) {
-                    Image(.previous)
+                    Button {
+                        previousSong()
+                    } label: {
+                        Image(.previous)
+                    }
                     Button {
                         isPlaying.toggle()
                     } label: {
@@ -208,7 +236,12 @@ struct PlayerView: View {
                                 Image(isPlaying ? .pause : .play)
                             }
                     }
-                    Image(.next)
+                    Button {
+                        nextSong()
+                    } label: {
+                        Image(.next)
+
+                    }
                 }
                 Image(.repeat)
             }
@@ -245,14 +278,10 @@ struct PlayerView: View {
                     }
             }.padding([.horizontal,.top])
             VStack(alignment:.leading) {
-                Text("I, I just woke up from a dream")
-                    .font(.system(size: 24,weight: .bold))
-                Text("Where you and I had to say goodbye")
-                    .font(.system(size: 24,weight: .bold))
-                Text("And I don't know what it all means")
+                Text(currentSong.lyric1)
                     .font(.system(size: 24,weight: .bold))
                 ZStack(alignment:.leading) {
-                    Text("But since I survived, I realized")
+                    Text(currentSong.lyric2)
                         .lineLimit(1)
                         .font(.system(size: 24,weight: .bold))
                         .foregroundStyle(.black)
@@ -260,8 +289,8 @@ struct PlayerView: View {
                         LinearGradient.init(colors: [
                             .clear,
                             .clear.opacity(0.4),
-                            .blue.opacity(0.5),
-                            .blue
+                            currentSong.color.opacity(0.5),
+                            currentSong.color
                         ], startPoint: .top, endPoint: .bottom)
                     )
                     .frame(height: 26)
@@ -269,7 +298,7 @@ struct PlayerView: View {
             }.padding()
             
         }
-        .background(.blue)
+        .background(currentSong.color)
         .cornerRadius(18)
         
     }
@@ -279,7 +308,7 @@ struct PlayerView: View {
         VStack {
             VStack {
                 ZStack(alignment:.topLeading) {
-                    Image(.ladyGaga)
+                    Image(currentSong.about)
                         .resizable()
                         .scaledToFill()
                     Text("About the artist")
@@ -290,9 +319,9 @@ struct PlayerView: View {
                 VStack {
                     HStack {
                         VStack(alignment:.leading) {
-                            Text(artists.first ?? "Artis")
+                            Text(currentSong.artist.first ?? "Artis")
                                 .font(.title2.bold())
-                            Text(listenersMonthly)
+                            Text("\(currentSong.listenersMonthly)M monthly listeners")
                                 .font(.subheadline)
                                 .foregroundStyle(.secondary)
                         }
@@ -380,6 +409,28 @@ struct PlayerView: View {
         timer?.invalidate()
         timer = nil
     }
+    
+    func nextSong() {
+        if currentIndex < Song.songs.count - 1 {
+            currentIndex += 1
+            updateCurrentSongAndVideo()
+        }
+    }
+
+    func previousSong() {
+        if currentIndex > 0 {
+            currentIndex -= 1
+            updateCurrentSongAndVideo()
+        }
+    }
+    
+    func updateCurrentSongAndVideo() {
+        let newSong = Song.songs[currentIndex]
+        currentSong = newSong
+        currentlyShownVideo = newSong.video
+    }
+
+
 }
 
 struct MerchItem: Identifiable {
